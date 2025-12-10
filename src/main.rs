@@ -6,22 +6,26 @@ mod lexer;
 mod token;
 
 const CODE: &str = r#"
-{"test string"}() [ 4.31 ]6. 5 == = => < <= >= != ~= "5asd" 5 && & true false if let func return asdhjzxckh else
+6____7 5us.32
 "#;
 
 fn main() {
     let mut lexer = Lexer::new(CODE.to_string());
 
     let time = Instant::now();
-    lexer.tokenize().unwrap();
+    let res = lexer.tokenize();
+    println!("Lexing took {:?}", time.elapsed());
+    if let Err(err) = res {
+        println!("Lexer error: {:?} at {:?}", err, lexer.location());
+        return;
+    }
 
     println!(
-        "{:?}, time it took: {:?}",
+        "{:?}",
         lexer
             .tokens()
             .iter()
             .map(|x| &x.token_type)
             .collect::<Vec<_>>(),
-        time.elapsed()
     );
 }

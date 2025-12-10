@@ -26,6 +26,10 @@ impl Lexer {
         self.current_loc.column += n;
     }
 
+    pub fn location(&self) -> &Location {
+        &self.current_loc
+    }
+
     pub fn tokens(&self) -> &Vec<Token> {
         &self.tokens
     }
@@ -173,31 +177,87 @@ impl Lexer {
                 }
 
                 '0'..='9' => {
+                    let start_loc = self.current_loc;
                     let mut num = String::new();
                     num.push(ch);
 
+                    let mut has_dot = false;
+
                     while let Some(&c) = chars.get(self.current_loc.index) {
                         match c {
-                            '0'..='9' | '.' => {
+                            '0'..='9' => {
                                 self.advance(1);
                                 num.push(c);
                             }
-                            ' ' | '\n' | '\r' | '\t' => break,
-                            _ => return Err("Unexpected character after numeral".into()),
+                            '_' => {
+                                self.advance(1);
+                            }
+                            '.' => {
+                                if has_dot {
+                                    return Err(
+                                        "Invalid numeric literal: multiple decimal points".into()
+                                    );
+                                }
+                                has_dot = true;
+                                self.advance(1);
+                                num.push('.');
+                            }
+                            _ => break,
                         }
                     }
 
-                    let float = num.contains('.');
+                    let mut suffix = String::new();
+
+                    while let Some(&c) = chars.get(self.current_loc.index) {
+                        match c {
+                            'i' | 'u' | 'f' | 's' => {
+                                self.advance(1);
+                                suffix.push(c);
+                            }
+                            '0'..='9' => {
+                                if suffix.is_empty() {
+                                    break;
+                                }
+                                self.advance(1);
+                                suffix.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+
+                    let numeric_type = if suffix.is_empty() {
+                        if has_dot {
+                            NumericType::F64
+                        } else {
+                            NumericType::I32
+                        }
+                    } else {
+                        match suffix.as_str() {
+                            "i8" => NumericType::I8,
+                            "i16" => NumericType::I16,
+                            "i32" => NumericType::I32,
+                            "i64" => NumericType::I64,
+                            "is" => NumericType::ISize,
+                            "u8" => NumericType::U8,
+                            "u16" => NumericType::U16,
+                            "u32" => NumericType::U32,
+                            "u64" => NumericType::U64,
+                            "us" => NumericType::USize,
+                            "f32" => NumericType::F32,
+                            "f64" => NumericType::F64,
+                            _ => return Err(format!("Unknown numeric type suffix '{}'", suffix)),
+                        }
+                    };
+
+                    if has_dot && !matches!(numeric_type, NumericType::F32 | NumericType::F64) {
+                        return Err(
+                            "Invalid numeric literal: integer literal cannot contain '.'".into(),
+                        );
+                    }
+
                     self.tokens.push(Token::new(
-                        TokenType::Literal(Literal::Numeric(
-                            num,
-                            if float {
-                                NumericType::F64
-                            } else {
-                                NumericType::I32
-                            },
-                        )),
-                        self.current_loc,
+                        TokenType::Literal(Literal::Numeric(num, numeric_type)),
+                        start_loc,
                     ));
                 }
 
