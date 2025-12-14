@@ -1,4 +1,6 @@
-use crate::token::{Delimiter, Keyword, Literal, Location, Operator, Token, TokenType};
+use crate::token::{
+    Delimiter, Keyword, Literal, Location, NumericType, Operator, Token, TokenType,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
@@ -11,7 +13,7 @@ pub enum Stmt {
     Func {
         name: String,
         params: Vec<Param>,
-        ty: Option<Type>,
+        ty: Type,
         body: Box<Statement>,
     },
     Scope {
@@ -71,6 +73,9 @@ pub struct Expression {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Named(String),
+    Numeric(NumericType),
+    Boolean,
+    Void,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -323,7 +328,22 @@ impl Parser {
 
     fn parse_type(&mut self) -> anyhow::Result<Type> {
         match self.advance().ty.clone() {
-            TokenType::Identifier(name) => Ok(Type::Named(name)),
+            TokenType::Identifier(name) => Ok(match name.as_str() {
+                "i8" => Type::Numeric(NumericType::I8),
+                "i16" => Type::Numeric(NumericType::I16),
+                "i32" => Type::Numeric(NumericType::I32),
+                "i64" => Type::Numeric(NumericType::I64),
+                "is" => Type::Numeric(NumericType::ISize),
+                "u8" => Type::Numeric(NumericType::U8),
+                "u16" => Type::Numeric(NumericType::U16),
+                "u32" => Type::Numeric(NumericType::U32),
+                "u64" => Type::Numeric(NumericType::U64),
+                "us" => Type::Numeric(NumericType::USize),
+                "f32" => Type::Numeric(NumericType::F32),
+                "f64" => Type::Numeric(NumericType::F64),
+                "bool" => Type::Boolean,
+                _ => Type::Named(name),
+            }),
             t => anyhow::bail!("Expected type, found {:?}", t),
         }
     }
@@ -392,9 +412,9 @@ impl Parser {
 
         let ty = if matches!(self.peek().ty, TokenType::Delimiter(Delimiter::Arrow)) {
             self.advance();
-            Some(self.parse_type()?)
+            self.parse_type()?
         } else {
-            None
+            Type::Void
         };
 
         let body = Box::new(self.parse_scope()?);
