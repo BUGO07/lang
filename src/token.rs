@@ -62,8 +62,8 @@ pub enum Keyword {
     For,
     Break,
     Continue,
-    True,
-    False,
+    // True,
+    // False,
     Import,
     As,
 }
@@ -96,6 +96,25 @@ pub enum Operator {
     BitAndAssign,  // &=
     BitOrAssign,   // |=
     BitNotAssign,  // ~=
+}
+
+impl Operator {
+    pub fn rank(&self) -> u8 {
+        match self {
+            Operator::LogicalNot | Operator::BitNot => 9,
+            Operator::Multiply | Operator::Divide | Operator::Modulus => 8,
+            Operator::Plus | Operator::Minus => 7,
+            Operator::Greater | Operator::Less | Operator::GreaterEquals | Operator::LessEquals => {
+                6
+            }
+            Operator::Equals | Operator::NotEquals => 5,
+            Operator::BitAnd => 4,
+            Operator::BitOr => 3,
+            Operator::LogicalAnd => 2,
+            Operator::LogicalOr => 1,
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

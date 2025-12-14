@@ -26,10 +26,6 @@ impl Lexer {
         self.current_loc.column += n;
     }
 
-    pub fn location(&self) -> &Location {
-        &self.current_loc
-    }
-
     pub fn tokens(&self) -> &Vec<Token> {
         &self.tokens
     }
