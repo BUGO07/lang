@@ -136,13 +136,50 @@ impl Parser {
     fn parse_assignment(&mut self) -> anyhow::Result<Expr> {
         let expr = self.parse_binary(1)?;
 
-        if matches!(self.peek().ty, TokenType::Operator(Operator::Assign)) {
-            self.advance();
-            let value = self.parse_assignment()?;
-            return Ok(Expr::Assignment {
-                target: Box::new(expr),
-                value: Box::new(value),
-            });
+        match self.peek().ty {
+            TokenType::Operator(Operator::Assign) => {
+                self.advance();
+                let value = self.parse_assignment()?;
+                return Ok(Expr::Assignment {
+                    target: Box::new(expr),
+                    value: Box::new(value),
+                });
+            }
+            TokenType::Operator(
+                op @ (Operator::AddAssign
+                | Operator::SubAssign
+                | Operator::MulAssign
+                | Operator::DivAssign
+                | Operator::ModAssign
+                | Operator::BitAndAssign
+                | Operator::BitOrAssign
+                | Operator::BitNotAssign),
+            ) => {
+                self.advance();
+                let right = self.parse_assignment()?;
+
+                let binary_op = match op {
+                    Operator::AddAssign => Operator::Plus,
+                    Operator::SubAssign => Operator::Minus,
+                    Operator::MulAssign => Operator::Multiply,
+                    Operator::DivAssign => Operator::Divide,
+                    Operator::ModAssign => Operator::Modulus,
+                    Operator::BitAndAssign => Operator::BitAnd,
+                    Operator::BitOrAssign => Operator::BitOr,
+                    Operator::BitNotAssign => Operator::BitNot,
+                    _ => unreachable!(),
+                };
+
+                return Ok(Expr::Assignment {
+                    target: Box::new(expr.clone()),
+                    value: Box::new(Expr::Binary {
+                        left: Box::new(expr),
+                        operator: binary_op,
+                        right: Box::new(right),
+                    }),
+                });
+            }
+            _ => {}
         }
 
         Ok(expr)

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parser::{Expr, Expression, Statement, Stmt, Type},
-    token::{Literal, Location},
+    token::{Literal, Location, Operator},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -274,7 +274,11 @@ impl SymbolTable {
 
                 Ok(sym.ty.clone())
             }
-            Expr::Binary { left, right, .. } => {
+            Expr::Binary {
+                left,
+                right,
+                operator,
+            } => {
                 let left_type = self.expr_type(&Expression {
                     expr: *left.clone(),
                     location: expression.location,
@@ -293,7 +297,25 @@ impl SymbolTable {
                     );
                 }
 
-                Ok(left_type)
+                match operator {
+                    Operator::LogicalNot | Operator::LogicalAnd | Operator::LogicalOr => {
+                        if left_type != Type::Boolean {
+                            anyhow::bail!(
+                                "Logical operators require boolean operands at {:?}, found {:?}",
+                                expression.location,
+                                left_type
+                            );
+                        }
+                        Ok(Type::Boolean)
+                    }
+                    Operator::Equals
+                    | Operator::NotEquals
+                    | Operator::Less
+                    | Operator::LessEquals
+                    | Operator::Greater
+                    | Operator::GreaterEquals => Ok(Type::Boolean),
+                    _ => Ok(left_type),
+                }
             }
             Expr::Unary { operand, .. } => self.expr_type(&Expression {
                 expr: *operand.clone(),

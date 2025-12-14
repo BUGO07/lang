@@ -1,7 +1,8 @@
 use std::time::Instant;
 
-use crate::{lexer::Lexer, parser::Parser, sema::SymbolTable};
+use crate::{interpreter::Interpreter, lexer::Lexer, parser::Parser, sema::SymbolTable};
 
+mod interpreter;
 mod lexer;
 mod parser;
 mod sema;
@@ -32,6 +33,11 @@ fn main() -> anyhow::Result<()> {
     sym_table.build(&parser.global_scope)?;
     println!("Semantic analysis took {:?}", time.elapsed());
     dbg!(&sym_table);
+
+    let mut interpreter = Interpreter::new();
+    let time = Instant::now();
+    interpreter.interpret(&parser.global_scope)?;
+    println!("Interpretation took {:?}", time.elapsed());
 
     println!("Total time: {:?}", total_time.elapsed());
     Ok(())
