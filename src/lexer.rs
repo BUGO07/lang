@@ -30,6 +30,10 @@ impl Lexer {
         &self.tokens
     }
 
+    pub fn location(&self) -> &Location {
+        &self.current_loc
+    }
+
     pub fn tokenize(&mut self) -> anyhow::Result<()> {
         let chars = self.source.chars().collect::<Vec<_>>();
 
@@ -305,7 +309,9 @@ impl Lexer {
                     self.tokens.push(Token::new(token, self.current_loc));
                 }
 
-                _ => {}
+                _ => {
+                    anyhow::bail!("Unexpected character '{}'", ch);
+                }
             }
         }
 

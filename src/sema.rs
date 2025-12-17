@@ -446,6 +446,12 @@ impl SymbolTable {
             ty: Type::Void,
             location: Location::default(),
         })?;
+        self.declare(Symbol {
+            name: "exit".to_string(),
+            kind: SymbolKind::Function,
+            ty: Type::Void,
+            location: Location::default(),
+        })?;
 
         for stmt in statements {
             self.build_stmt(stmt)?;

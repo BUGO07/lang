@@ -10,7 +10,7 @@ func main() => i32 {
     if z == 420 {
         print("{} is: {}", output, add_three(x, y, z));
     };
-
+ 
     return 2;
 }
 
@@ -19,6 +19,10 @@ while x < 100 {
     x += 1;
     if x % 2 == 0 {
         continue;
+    };
+    if x == 67 {
+        print("Exiting with code 67");
+        exit(67);
     };
     print(x);
 }
