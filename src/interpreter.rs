@@ -26,24 +26,46 @@ pub enum InterpretValue {
 }
 
 impl InterpretValue {
-    pub fn from_literal(lit: Literal) -> Self {
+    pub fn from_literal(lit: Literal) -> anyhow::Result<Self> {
         match lit {
-            Literal::Numeric(value, num_type) => match num_type {
-                NumericType::I8 => InterpretValue::I8(value.parse().unwrap()),
-                NumericType::I16 => InterpretValue::I16(value.parse().unwrap()),
-                NumericType::I32 => InterpretValue::I32(value.parse().unwrap()),
-                NumericType::I64 => InterpretValue::I64(value.parse().unwrap()),
-                NumericType::ISize => InterpretValue::ISize(value.parse().unwrap()),
-                NumericType::U8 => InterpretValue::U8(value.parse().unwrap()),
-                NumericType::U16 => InterpretValue::U16(value.parse().unwrap()),
-                NumericType::U32 => InterpretValue::U32(value.parse().unwrap()),
-                NumericType::U64 => InterpretValue::U64(value.parse().unwrap()),
-                NumericType::USize => InterpretValue::USize(value.parse().unwrap()),
-                NumericType::F32 => InterpretValue::F32(value.parse().unwrap()),
-                NumericType::F64 => InterpretValue::F64(value.parse().unwrap()),
-            },
-            Literal::String(value) => InterpretValue::String(value),
-            Literal::Boolean(value) => InterpretValue::Boolean(value == "true"),
+            Literal::Numeric(lit) => {
+                let value = lit.split("_").next().unwrap();
+                let Some(num_type) = NumericType::from_literal(&lit)? else {
+                    return Ok(if value.contains(".") {
+                        InterpretValue::F64(value.parse()?)
+                    } else {
+                        InterpretValue::I32(value.parse()?)
+                    });
+                };
+                if value.starts_with("-")
+                    && matches!(
+                        num_type,
+                        NumericType::U8
+                            | NumericType::U16
+                            | NumericType::U32
+                            | NumericType::U64
+                            | NumericType::USize
+                    )
+                {
+                    anyhow::bail!("Negative value for unsigned numeric type");
+                }
+                match num_type {
+                    NumericType::I8 => Ok(InterpretValue::I8(value.parse()?)),
+                    NumericType::I16 => Ok(InterpretValue::I16(value.parse()?)),
+                    NumericType::I32 => Ok(InterpretValue::I32(value.parse()?)),
+                    NumericType::I64 => Ok(InterpretValue::I64(value.parse()?)),
+                    NumericType::ISize => Ok(InterpretValue::ISize(value.parse()?)),
+                    NumericType::U8 => Ok(InterpretValue::U8(value.parse()?)),
+                    NumericType::U16 => Ok(InterpretValue::U16(value.parse()?)),
+                    NumericType::U32 => Ok(InterpretValue::U32(value.parse()?)),
+                    NumericType::U64 => Ok(InterpretValue::U64(value.parse()?)),
+                    NumericType::USize => Ok(InterpretValue::USize(value.parse()?)),
+                    NumericType::F32 => Ok(InterpretValue::F32(value.parse()?)),
+                    NumericType::F64 => Ok(InterpretValue::F64(value.parse()?)),
+                }
+            }
+            Literal::String(lit) => Ok(InterpretValue::String(lit)),
+            Literal::Boolean(lit) => Ok(InterpretValue::Boolean(lit == "true")),
         }
     }
 
@@ -585,7 +607,7 @@ impl Environment {
     fn get(&self, name: &str) -> anyhow::Result<InterpretValue> {
         for scope in self.scopes.iter().rev() {
             if let Some(value) = scope.get(name) {
-                return Ok(unsafe { std::ptr::read(value) });
+                return Ok(value.clone());
             }
         }
         anyhow::bail!("Variable '{}' not found", name);
@@ -678,8 +700,32 @@ impl Interpreter {
 
     fn exec_stmt(&mut self, statement: &Statement) -> anyhow::Result<ControlFlow> {
         match &statement.stmt {
-            Stmt::Let { name, value, .. } => {
+            Stmt::Let { name, value, ty } => {
                 let (val, _) = self.eval_expr(value)?;
+                if let Some(ty) = ty {
+                    let inferred_ty = match &val {
+                        InterpretValue::I8(_) => Type::Numeric(NumericType::I8),
+                        InterpretValue::I16(_) => Type::Numeric(NumericType::I16),
+                        InterpretValue::I32(_) => Type::Numeric(NumericType::I32),
+                        InterpretValue::I64(_) => Type::Numeric(NumericType::I64),
+                        InterpretValue::ISize(_) => Type::Numeric(NumericType::ISize),
+                        InterpretValue::U8(_) => Type::Numeric(NumericType::U8),
+                        InterpretValue::U16(_) => Type::Numeric(NumericType::U16),
+                        InterpretValue::U32(_) => Type::Numeric(NumericType::U32),
+                        InterpretValue::U64(_) => Type::Numeric(NumericType::U64),
+                        InterpretValue::USize(_) => Type::Numeric(NumericType::USize),
+                        InterpretValue::F32(_) => Type::Numeric(NumericType::F32),
+                        InterpretValue::F64(_) => Type::Numeric(NumericType::F64),
+                        InterpretValue::Boolean(_) => Type::Boolean,
+                        InterpretValue::String(_) => Type::Named("String".to_string()),
+                        InterpretValue::Pointer(_, t) => Type::Pointer(Box::new(t.clone())),
+                        InterpretValue::Void => Type::Void,
+                    };
+                    anyhow::ensure!(
+                        &inferred_ty == ty,
+                        "Type mismatch: expected {ty:?}, got {inferred_ty:?}",
+                    );
+                }
                 self.env.set(name.clone(), val)?;
                 Ok(ControlFlow::None)
             }
@@ -740,9 +786,10 @@ impl Interpreter {
 
     fn eval_expr(&mut self, expr: &Expr) -> anyhow::Result<(InterpretValue, ControlFlow)> {
         match expr {
-            Expr::Literal(lit) => {
-                Ok((InterpretValue::from_literal(lit.clone()), ControlFlow::None))
-            }
+            Expr::Literal(lit) => Ok((
+                InterpretValue::from_literal(lit.clone())?, // ! TODO: FIX ME
+                ControlFlow::None,
+            )),
             Expr::Variable(name) => Ok((self.env.get(name)?, ControlFlow::None)),
             Expr::Binary {
                 left,
@@ -938,66 +985,74 @@ impl Interpreter {
                     Ok((InterpretValue::Void, ControlFlow::None))
                 }
             }
-            Expr::FunctionCall { name, arguments } => {
-                let function = self.env.get_function(name)?.clone();
+            Expr::FunctionCall { name, arguments } => self.call_func(name, arguments),
+        }
+    }
 
-                match function {
-                    Function::Native { func } => {
-                        let mut args = Vec::new();
-                        for arg_expr in arguments {
-                            let (arg_value, _) = self.eval_expr(arg_expr)?;
-                            args.push(arg_value);
-                        }
-                        let result = func.call(args)?;
-                        Ok((result, ControlFlow::None))
-                    }
-                    Function::Interpreted { params, body } => {
-                        if arguments.len() != params.len() {
-                            anyhow::bail!(
-                                "Function '{}' expected {} arguments but got {}",
-                                name,
-                                params.len(),
-                                arguments.len()
-                            );
-                        }
-                        self.env.push_scope();
-                        for (param, arg_expr) in params.iter().zip(arguments.iter()) {
-                            let (arg_value, _) = self.eval_expr(arg_expr)?;
-                            self.env.set(param.name.clone(), arg_value)?;
-                        }
-                        let control_flow = match &body.stmt {
-                            Stmt::Scope { statements } => {
-                                let mut result = ControlFlow::None;
-                                for stmt in statements {
-                                    result = self.exec_stmt(stmt)?;
-                                    match result {
-                                        ControlFlow::Return(_)
-                                        | ControlFlow::Break
-                                        | ControlFlow::Continue => break,
-                                        ControlFlow::None => {}
-                                    }
-                                }
-                                result
+    pub fn call_func(
+        &mut self,
+        name: &str,
+        arguments: &[Expr],
+    ) -> anyhow::Result<(InterpretValue, ControlFlow)> {
+        let function = self.env.get_function(name)?.clone();
+
+        match function {
+            Function::Native { func } => {
+                let mut args = Vec::new();
+                for arg_expr in arguments {
+                    let (arg_value, _) = self.eval_expr(arg_expr)?;
+                    args.push(arg_value);
+                }
+                let result = func.call(args)?;
+                Ok((result, ControlFlow::None))
+            }
+            Function::Interpreted { params, body } => {
+                if arguments.len() != params.len() {
+                    anyhow::bail!(
+                        "Function '{}' expected {} arguments but got {}",
+                        name,
+                        params.len(),
+                        arguments.len()
+                    );
+                }
+                self.env.push_scope();
+                for (param, arg_expr) in params.iter().zip(arguments.iter()) {
+                    let (arg_value, _) = self.eval_expr(arg_expr)?;
+                    self.env.set(param.name.clone(), arg_value)?;
+                }
+                let control_flow = match &body.stmt {
+                    Stmt::Scope { statements } => {
+                        let mut result = ControlFlow::None;
+                        for stmt in statements {
+                            result = self.exec_stmt(stmt)?;
+                            match result {
+                                ControlFlow::Return(_)
+                                | ControlFlow::Break
+                                | ControlFlow::Continue => break,
+                                ControlFlow::None => {}
                             }
-                            _ => self.exec_stmt(&body)?,
-                        };
-
-                        self.env.pop_scope();
-                        match control_flow {
-                            ControlFlow::Return(val) => Ok((val, ControlFlow::None)),
-                            _ => Ok((InterpretValue::Void, ControlFlow::None)),
                         }
+                        result
                     }
+                    _ => self.exec_stmt(&body)?,
+                };
+
+                self.env.pop_scope();
+                match control_flow {
+                    ControlFlow::Return(val) => Ok((val, ControlFlow::None)),
+                    _ => Ok((InterpretValue::Void, ControlFlow::None)),
                 }
             }
         }
     }
 
-    pub fn interpret(&mut self, statements: &[Statement]) -> anyhow::Result<()> {
+    pub fn interpret(&mut self, statements: &[Statement]) -> anyhow::Result<ControlFlow> {
+        let mut control_flow = ControlFlow::None;
         for stmt in statements {
-            self.exec_stmt(stmt)
+            control_flow = self
+                .exec_stmt(stmt)
                 .map_err(|e| anyhow::anyhow!("{} at {:?}", e, stmt.location))?;
         }
-        Ok(())
+        Ok(control_flow)
     }
 }

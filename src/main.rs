@@ -1,4 +1,9 @@
-use crate::{interpreter::Interpreter, lexer::Lexer, parser::Parser, sema::SymbolTable};
+use crate::{
+    interpreter::{ControlFlow, Interpreter},
+    lexer::Lexer,
+    parser::Parser,
+    sema::SymbolTable,
+};
 
 mod interpreter;
 mod lexer;
@@ -16,10 +21,12 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("Usage: {} <source_file>", args[0]);
     }
 
-    run_file(&args[1])
+    run_file(&args[1])?;
+
+    Ok(())
 }
 
-fn run_file(name: &str) -> anyhow::Result<()> {
+fn run_file(name: &str) -> anyhow::Result<ControlFlow> {
     let mut lexer = Lexer::new(std::fs::read_to_string(name)?);
     lexer
         .tokenize()

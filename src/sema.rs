@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parser::{Expr, Expression, Statement, Stmt, Type},
-    token::{Literal, Location, Operator},
+    token::{Literal, Location, NumericType, Operator},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,7 +259,13 @@ impl SymbolTable {
     fn expr_type(&self, expression: &Expression) -> anyhow::Result<Type> {
         match &expression.expr {
             Expr::Literal(lit) => match lit {
-                Literal::Numeric(_, num_type) => Ok(Type::Numeric(*num_type)),
+                Literal::Numeric(literal) => Ok(Type::Numeric(
+                    NumericType::from_literal(literal)?.unwrap_or(if literal.contains(".") {
+                        NumericType::F64
+                    } else {
+                        NumericType::I32
+                    }),
+                )),
                 Literal::String(_) => Ok(Type::Named("String".to_string())),
                 Literal::Boolean(_) => Ok(Type::Boolean),
             },

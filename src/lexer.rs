@@ -109,7 +109,7 @@ impl Lexer {
         );
 
         self.tokens.push(Token::new(
-            TokenType::Literal(Literal::Numeric(literal, numeric_type)),
+            TokenType::Literal(Literal::Numeric(literal + "_" + &suffix)),
             start_loc,
         ));
         Ok(())

@@ -27,7 +27,7 @@ pub enum TokenType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
-    Numeric(String, NumericType),
+    Numeric(String),
     String(String),
     Boolean(String),
 }
@@ -46,6 +46,31 @@ pub enum NumericType {
     USize,
     F32,
     F64,
+}
+
+impl NumericType {
+    pub fn from_literal(literal: &str) -> anyhow::Result<Option<Self>> {
+        let suffix = literal.split("_").last().unwrap();
+        if suffix.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(match suffix {
+                "i8" => NumericType::I8,
+                "i16" => NumericType::I16,
+                "i32" => NumericType::I32,
+                "i64" => NumericType::I64,
+                "is" => NumericType::ISize,
+                "u8" => NumericType::U8,
+                "u16" => NumericType::U16,
+                "u32" => NumericType::U32,
+                "u64" => NumericType::U64,
+                "us" => NumericType::USize,
+                "f32" => NumericType::F32,
+                "f64" => NumericType::F64,
+                _ => anyhow::bail!("Unknown numeric type suffix '{}'", suffix),
+            }))
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
