@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    parser::{Expr, Param, Statement, Stmt},
+    parser::{Expr, Param, Statement, Stmt, Type},
     token::{Literal, NumericType, Operator},
 };
 
@@ -21,6 +21,7 @@ pub enum InterpretValue {
     F64(f64),
     Boolean(bool),
     String(String),
+    Pointer(usize, Type),
     Void,
 }
 
@@ -329,8 +330,18 @@ impl InterpretValue {
 
     pub fn not(&self) -> anyhow::Result<InterpretValue> {
         match self {
+            InterpretValue::I8(a) => Ok(InterpretValue::I8(!a)),
+            InterpretValue::I16(a) => Ok(InterpretValue::I16(!a)),
+            InterpretValue::I32(a) => Ok(InterpretValue::I32(!a)),
+            InterpretValue::I64(a) => Ok(InterpretValue::I64(!a)),
+            InterpretValue::ISize(a) => Ok(InterpretValue::ISize(!a)),
+            InterpretValue::U8(a) => Ok(InterpretValue::U8(!a)),
+            InterpretValue::U16(a) => Ok(InterpretValue::U16(!a)),
+            InterpretValue::U32(a) => Ok(InterpretValue::U32(!a)),
+            InterpretValue::U64(a) => Ok(InterpretValue::U64(!a)),
+            InterpretValue::USize(a) => Ok(InterpretValue::USize(!a)),
             InterpretValue::Boolean(a) => Ok(InterpretValue::Boolean(!a)),
-            _ => anyhow::bail!("Logical NOT is not supported for given value type"),
+            _ => anyhow::bail!("NOT is not supported for given value type"),
         }
     }
 
@@ -374,22 +385,6 @@ impl InterpretValue {
         }
     }
 
-    pub fn bitnot(&self) -> anyhow::Result<InterpretValue> {
-        match self {
-            InterpretValue::I8(a) => Ok(InterpretValue::I8(!a)),
-            InterpretValue::I16(a) => Ok(InterpretValue::I16(!a)),
-            InterpretValue::I32(a) => Ok(InterpretValue::I32(!a)),
-            InterpretValue::I64(a) => Ok(InterpretValue::I64(!a)),
-            InterpretValue::ISize(a) => Ok(InterpretValue::ISize(!a)),
-            InterpretValue::U8(a) => Ok(InterpretValue::U8(!a)),
-            InterpretValue::U16(a) => Ok(InterpretValue::U16(!a)),
-            InterpretValue::U32(a) => Ok(InterpretValue::U32(!a)),
-            InterpretValue::U64(a) => Ok(InterpretValue::U64(!a)),
-            InterpretValue::USize(a) => Ok(InterpretValue::USize(!a)),
-            _ => anyhow::bail!("Bitwise NOT is not supported for given value type"),
-        }
-    }
-
     pub fn neg(&self) -> anyhow::Result<InterpretValue> {
         match self {
             InterpretValue::I8(a) => Ok(InterpretValue::I8(-a)),
@@ -400,6 +395,98 @@ impl InterpretValue {
             InterpretValue::F32(a) => Ok(InterpretValue::F32(-a)),
             InterpretValue::F64(a) => Ok(InterpretValue::F64(-a)),
             _ => anyhow::bail!("Negation is not supported for given value type"),
+        }
+    }
+
+    pub fn _ref(&self) -> anyhow::Result<InterpretValue> {
+        match self {
+            InterpretValue::I8(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::I8),
+            )),
+            InterpretValue::I16(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::I16),
+            )),
+            InterpretValue::I32(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::I32),
+            )),
+            InterpretValue::I64(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::I64),
+            )),
+            InterpretValue::ISize(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::ISize),
+            )),
+            InterpretValue::U8(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::U8),
+            )),
+            InterpretValue::U16(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::U16),
+            )),
+            InterpretValue::U32(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::U32),
+            )),
+            InterpretValue::U64(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::U64),
+            )),
+            InterpretValue::USize(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::USize),
+            )),
+            InterpretValue::F32(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::F32),
+            )),
+            InterpretValue::F64(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Numeric(NumericType::F64),
+            )),
+            InterpretValue::Boolean(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Boolean,
+            )),
+            InterpretValue::String(a) => Ok(InterpretValue::Pointer(
+                &raw const a as usize,
+                Type::Named("String".to_string()),
+            )),
+            _ => anyhow::bail!("Reference is not supported for given value type"),
+        }
+    }
+
+    pub fn _deref(&self) -> anyhow::Result<InterpretValue> {
+        unsafe {
+            match self {
+                InterpretValue::Pointer(ptr, ty) => match ty {
+                    Type::Boolean => Ok(InterpretValue::Boolean(*(*ptr as *mut bool))),
+                    Type::Numeric(n) => match n {
+                        NumericType::I8 => Ok(InterpretValue::I8(*(*ptr as *mut i8))),
+                        NumericType::I16 => Ok(InterpretValue::I16(*(*ptr as *mut i16))),
+                        NumericType::I32 => Ok(InterpretValue::I32(*(*ptr as *mut i32))),
+                        NumericType::I64 => Ok(InterpretValue::I64(*(*ptr as *mut i64))),
+                        NumericType::ISize => Ok(InterpretValue::ISize(*(*ptr as *mut isize))),
+                        NumericType::U8 => Ok(InterpretValue::U8(*(*ptr as *mut u8))),
+                        NumericType::U16 => Ok(InterpretValue::U16(*(*ptr as *mut u16))),
+                        NumericType::U32 => Ok(InterpretValue::U32(*(*ptr as *mut u32))),
+                        NumericType::U64 => Ok(InterpretValue::U64(*(*ptr as *mut u64))),
+                        NumericType::USize => Ok(InterpretValue::USize(*(*ptr as *mut usize))),
+                        NumericType::F32 => Ok(InterpretValue::F32(*(*ptr as *mut f32))),
+                        NumericType::F64 => Ok(InterpretValue::F64(*(*ptr as *mut f64))),
+                    },
+                    Type::Named(n) => match n.as_str() {
+                        "String" => Ok(InterpretValue::String((*(*ptr as *mut String)).clone())),
+                        _ => anyhow::bail!("Dereference is not supported for given value type"),
+                    },
+                    _ => anyhow::bail!("Dereference is not supported for given value type"),
+                },
+                _ => anyhow::bail!("Dereference is not supported for given value type"),
+            }
         }
     }
 
@@ -419,6 +506,7 @@ impl InterpretValue {
             InterpretValue::F64(v) => v.to_string(),
             InterpretValue::Boolean(v) => v.to_string(),
             InterpretValue::String(v) => v.clone(),
+            InterpretValue::Pointer(v, t) => format!("Pointer({t:?}): {v:#x}"),
             InterpretValue::Void => "void".to_string(),
         }
     }
@@ -497,7 +585,7 @@ impl Environment {
     fn get(&self, name: &str) -> anyhow::Result<InterpretValue> {
         for scope in self.scopes.iter().rev() {
             if let Some(value) = scope.get(name) {
-                return Ok(value.clone());
+                return Ok(unsafe { std::ptr::read(value) });
             }
         }
         anyhow::bail!("Variable '{}' not found", name);
@@ -666,9 +754,9 @@ impl Interpreter {
                 let result = match operator {
                     Operator::Plus => left_val.add(&right_val),
                     Operator::Minus => left_val.sub(&right_val),
-                    Operator::Multiply => left_val.mul(&right_val),
-                    Operator::Divide => left_val.div(&right_val),
-                    Operator::Modulus => left_val.rem(&right_val),
+                    Operator::Asterisk => left_val.mul(&right_val),
+                    Operator::Slash => left_val.div(&right_val),
+                    Operator::Percent => left_val.rem(&right_val),
                     Operator::Equals => left_val.eq(&right_val),
                     Operator::NotEquals => left_val.neq(&right_val),
                     Operator::Greater => left_val.gt(&right_val),
@@ -677,8 +765,8 @@ impl Interpreter {
                     Operator::LessEquals => left_val.lte(&right_val),
                     Operator::LogicalAnd => left_val.and(&right_val),
                     Operator::LogicalOr => left_val.or(&right_val),
-                    Operator::BitAnd => left_val.bitand(&right_val),
-                    Operator::BitOr => left_val.bitor(&right_val),
+                    Operator::Ampersand => left_val.bitand(&right_val),
+                    Operator::VerticalBar => left_val.bitor(&right_val),
                     _ => anyhow::bail!("Unknown binary operator '{:?}'", operator),
                 }?;
                 Ok((result, ControlFlow::None))
@@ -687,21 +775,130 @@ impl Interpreter {
                 let (operand_val, _) = self.eval_expr(operand)?;
                 let result = match operator {
                     Operator::Minus => operand_val.neg(),
-                    Operator::LogicalNot => operand_val.not(),
-                    Operator::BitNot => operand_val.bitnot(),
+                    Operator::Exclem => operand_val.not(),
+                    Operator::Asterisk => operand_val._deref(),
+                    Operator::Ampersand => operand_val._ref(),
                     _ => anyhow::bail!("Unknown unary operator '{:?}'", operator),
                 }?;
                 Ok((result, ControlFlow::None))
             }
             Expr::Assignment { target, value } => {
+                let (val, _) = self.eval_expr(value)?;
                 let target = if let Expr::Variable(name) = target.as_ref() {
                     name.clone()
+                } else if let Expr::Unary { operator, operand } = target.as_ref() {
+                    if *operator == Operator::Asterisk {
+                        let (op, _) = self.eval_expr(operand)?;
+                        if let InterpretValue::Pointer(ptr, ty) = &op {
+                            unsafe {
+                                match ty {
+                                    // ! TODO: FIX ME
+                                    Type::Boolean => {
+                                        *(*ptr as *mut bool) = match val {
+                                            InterpretValue::Boolean(b) => b,
+                                            _ => anyhow::bail!("Type mismatch in assignment"),
+                                        }
+                                    }
+                                    Type::Numeric(n) => match n {
+                                        NumericType::I8 => {
+                                            *(*ptr as *mut i8) = match val {
+                                                InterpretValue::I8(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::I16 => {
+                                            *(*ptr as *mut i16) = match val {
+                                                InterpretValue::I16(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::I32 => {
+                                            *(*ptr as *mut i32) = match val {
+                                                InterpretValue::I32(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::I64 => {
+                                            *(*ptr as *mut i64) = match val {
+                                                InterpretValue::I64(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::ISize => {
+                                            *(*ptr as *mut isize) = match val {
+                                                InterpretValue::ISize(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::U8 => {
+                                            *(*ptr as *mut u8) = match val {
+                                                InterpretValue::U8(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::U16 => {
+                                            *(*ptr as *mut u16) = match val {
+                                                InterpretValue::U16(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::U32 => {
+                                            *(*ptr as *mut u32) = match val {
+                                                InterpretValue::U32(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::U64 => {
+                                            *(*ptr as *mut u64) = match val {
+                                                InterpretValue::U64(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::USize => {
+                                            *(*ptr as *mut usize) = match val {
+                                                InterpretValue::USize(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::F32 => {
+                                            *(*ptr as *mut f32) = match val {
+                                                InterpretValue::F32(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        NumericType::F64 => {
+                                            *(*ptr as *mut f64) = match val {
+                                                InterpretValue::F64(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                    },
+                                    Type::Named(n) => match n.as_str() {
+                                        "String" => {
+                                            *(*ptr as *mut String) = match val {
+                                                InterpretValue::String(v) => v,
+                                                _ => anyhow::bail!("Type mismatch in assignment"),
+                                            }
+                                        }
+                                        _ => anyhow::bail!(
+                                            "Dereference is not supported for given value type"
+                                        ),
+                                    },
+                                    _ => anyhow::bail!(
+                                        "Dereference is not supported for given value type"
+                                    ),
+                                }
+                            }
+                        }
+                        return Ok((op, ControlFlow::None));
+                    } else {
+                        anyhow::bail!("Invalid assignment target");
+                    }
                 } else {
                     anyhow::bail!("Invalid assignment target");
                 };
-                let (val, _) = self.eval_expr(value)?;
-                self.env.update(target, val.clone())?;
-                Ok((val, ControlFlow::None))
+                self.env.update(target, val)?;
+                Ok((InterpretValue::Void, ControlFlow::None))
             }
             Expr::If {
                 condition,

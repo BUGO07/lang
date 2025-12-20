@@ -74,6 +74,7 @@ pub struct Expression {
 pub enum Type {
     Named(String),
     Numeric(NumericType),
+    Pointer(Box<Type>),
     Boolean,
     Void,
 }
@@ -166,8 +167,7 @@ impl Parser {
                 | Operator::DivAssign
                 | Operator::ModAssign
                 | Operator::BitAndAssign
-                | Operator::BitOrAssign
-                | Operator::BitNotAssign),
+                | Operator::BitOrAssign),
             ) => {
                 self.advance()?;
                 let right = self.parse_assignment()?;
@@ -175,12 +175,11 @@ impl Parser {
                 let binary_op = match op {
                     Operator::AddAssign => Operator::Plus,
                     Operator::SubAssign => Operator::Minus,
-                    Operator::MulAssign => Operator::Multiply,
-                    Operator::DivAssign => Operator::Divide,
-                    Operator::ModAssign => Operator::Modulus,
-                    Operator::BitAndAssign => Operator::BitAnd,
-                    Operator::BitOrAssign => Operator::BitOr,
-                    Operator::BitNotAssign => Operator::BitNot,
+                    Operator::MulAssign => Operator::Asterisk,
+                    Operator::DivAssign => Operator::Slash,
+                    Operator::ModAssign => Operator::Percent,
+                    Operator::BitAndAssign => Operator::Ampersand,
+                    Operator::BitOrAssign => Operator::VerticalBar,
                     _ => unreachable!(),
                 };
 
@@ -227,7 +226,10 @@ impl Parser {
 
     fn parse_unary(&mut self) -> anyhow::Result<Expr> {
         if let TokenType::Operator(
-            operator @ (Operator::Minus | Operator::LogicalNot | Operator::BitNot),
+            operator @ (Operator::Minus
+            | Operator::Exclem
+            | Operator::Asterisk
+            | Operator::Ampersand),
         ) = self.peek()?.ty
         {
             self.advance()?;
@@ -379,6 +381,9 @@ impl Parser {
 
     fn parse_type(&mut self) -> anyhow::Result<Type> {
         match self.advance()?.ty.clone() {
+            TokenType::Operator(Operator::Asterisk) => {
+                Ok(Type::Pointer(Box::new(self.parse_type()?)))
+            }
             TokenType::Identifier(name) => Ok(match name.as_str() {
                 "i8" => Type::Numeric(NumericType::I8),
                 "i16" => Type::Numeric(NumericType::I16),

@@ -298,7 +298,7 @@ impl SymbolTable {
                 }
 
                 match operator {
-                    Operator::LogicalNot | Operator::LogicalAnd | Operator::LogicalOr => {
+                    Operator::Exclem | Operator::LogicalAnd | Operator::LogicalOr => {
                         if left_type != Type::Boolean {
                             anyhow::bail!(
                                 "Logical operators require boolean operands at {:?}, found {:?}",
@@ -317,10 +317,23 @@ impl SymbolTable {
                     _ => Ok(left_type),
                 }
             }
-            Expr::Unary { operand, .. } => self.expr_type(&Expression {
-                expr: *operand.clone(),
-                location: expression.location,
-            }),
+            Expr::Unary { operand, operator } => {
+                let op_type = self.expr_type(&Expression {
+                    expr: *operand.clone(),
+                    location: expression.location,
+                })?;
+                Ok(match operator {
+                    Operator::Ampersand => Type::Pointer(Box::new(op_type)),
+                    Operator::Asterisk => match op_type {
+                        Type::Pointer(x) => *x,
+                        _ => anyhow::bail!(
+                            "Dereferencing a non-pointer type at {:?}",
+                            expression.location
+                        ),
+                    },
+                    _ => op_type,
+                })
+            }
             Expr::Assignment { target, value } => {
                 let target_type = self.expr_type(&Expression {
                     expr: *target.clone(),
