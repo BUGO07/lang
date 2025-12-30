@@ -67,6 +67,7 @@ impl InterpretValue {
                 }
             }
             Literal::String(lit) => Ok(InterpretValue::String(lit)),
+            Literal::Char(lit) => Ok(InterpretValue::U8(lit as u8)),
             Literal::Boolean(lit) => Ok(InterpretValue::Boolean(lit == "true")),
         }
     }

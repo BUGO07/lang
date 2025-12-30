@@ -274,6 +274,7 @@ impl SymbolTable {
                         NumericType::I32
                     }),
                 )),
+                Literal::Char(_) => Ok(Type::Named("char".to_string())),
                 Literal::String(_) => Ok(Type::Named("String".to_string())),
                 Literal::Boolean(_) => Ok(Type::Boolean),
             },

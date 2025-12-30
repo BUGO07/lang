@@ -320,6 +320,29 @@ impl Lexer {
                     ));
                 }
 
+                '\'' => {
+                    let c = if let Some(&c) = chars.get(self.current_loc.index) {
+                        self.advance(1);
+                        c
+                    } else {
+                        anyhow::bail!("Unterminated character literal");
+                    };
+
+                    if let Some(&next) = chars.get(self.current_loc.index) {
+                        if next == '\'' {
+                            self.advance(1);
+                            self.tokens.push(Token::new(
+                                TokenType::Literal(Literal::Char(c)),
+                                self.current_loc,
+                            ));
+                        } else {
+                            anyhow::bail!("Unterminated character literal");
+                        }
+                    } else {
+                        anyhow::bail!("Unterminated character literal");
+                    }
+                }
+
                 'a'..='z' | 'A'..='Z' | '_' => {
                     let mut ident = String::new();
                     ident.push(ch);

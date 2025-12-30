@@ -28,6 +28,7 @@ pub enum TokenType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
     Numeric(String),
+    Char(char),
     String(String),
     Boolean(String),
 }
