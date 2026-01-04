@@ -31,7 +31,12 @@ impl InterpretValue {
     pub fn from_literal(lit: Literal) -> anyhow::Result<Self> {
         match lit {
             Literal::Numeric(lit) => {
-                let value = lit.split("_").next().unwrap();
+                // Split at underscore using find instead of split to avoid allocation
+                let value = if let Some(pos) = lit.find('_') {
+                    &lit[..pos]
+                } else {
+                    &lit
+                };
                 let Some(num_type) = NumericType::from_literal(&lit)? else {
                     return Ok(if value.contains(".") {
                         InterpretValue::F64(value.parse()?)
