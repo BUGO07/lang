@@ -230,7 +230,7 @@ impl SymbolTable {
         match expr {
             Expr::Literal(lit) => match lit {
                 Literal::Numeric(literal) => Ok(Type::Numeric(
-                    NumericType::from_literal(literal)?.unwrap_or(if literal.contains(".") {
+                    NumericType::from_literal(literal)?.unwrap_or(if literal.contains('.') {
                         NumericType::F64
                     } else {
                         NumericType::I32
